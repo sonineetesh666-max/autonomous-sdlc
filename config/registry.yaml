@@ -1,0 +1,21 @@
+# Jira project key -> repo + org. Routing is configuration, never AI guesswork.
+projects:
+  SFDEV:
+    repo: your-github-org/your-salesforce-repo
+    base_branch: main
+    org_strategy: scratch            # fresh scratch org per ticket (recommended)
+    dev_hub_alias: devhub
+    scratch_def: config/project-scratch-def.json
+    scratch_duration_days: 1
+
+  # Example of a second client project using a sandbox (org must already be authorised in sf CLI)
+  # CLIENTB:
+  #   repo: your-github-org/clientb-service-cloud
+  #   base_branch: develop
+  #   org_strategy: sandbox
+  #   org_alias: clientb-dev-sbx
+
+# Optional: rename Jira statuses to match your workflow
+# jira_statuses:
+#   ready: "Ready for AI"
+#   design_review: "AI Design Review"
