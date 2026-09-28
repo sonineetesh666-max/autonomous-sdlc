@@ -3,3 +3,4 @@ state.db
 workspaces/
 __pycache__/
 *.key
+.venv/

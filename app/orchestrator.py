@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 from pathlib import Path
 
 from mcp import StdioServerParameters
@@ -68,8 +69,7 @@ class Orchestrator:
         st.repo = proj.repo
         if extra and f.get(extra[0]):
             st.repo = str(f[extra[0]]).strip()
-        st.base_branch, st.branch, st.org_strategy = proj.base_branch, f"ai/{key}", proj.org_strategy
-        st.org_alias = f"{key}-scratch" if proj.org_strategy == "scratch" else proj.org_alias
+        st.base_branch, st.branch, st.org_alias = proj.base_branch, f"ai/{key}", proj.org_alias
 
         # Definition of Ready
         desc = (f.get("description") or "").lower()
@@ -86,14 +86,12 @@ class Orchestrator:
         self.store.save(st)
         self.jira.transition_to(key, self.S["analyzing"])
 
-        # Plumbing = plain code (no AI): fresh clone, org, deploy repo source
+        # Plumbing = plain code (no AI): fresh clone, confirm the org, deploy repo source
         ws = await asyncio.to_thread(self.git.prepare, st.repo, st.base_branch, st.branch, key, True)
         st.workspace = str(ws)
-        if proj.org_strategy == "scratch":
-            ok, msg = await asyncio.to_thread(sf_cli.create_scratch, ws, st.org_alias, proj.dev_hub_alias,
-                                              proj.scratch_def, proj.scratch_duration_days)
-            if not ok:
-                return self._block(st, f"Scratch org creation failed: {msg}")
+        ok, msg = await asyncio.to_thread(sf_cli.check_org, st.org_alias)
+        if not ok:
+            return self._block(st, f"Target org '{st.org_alias}' is not usable: {msg}")
         ok, errors = await asyncio.to_thread(sf_cli.deploy_project, ws, st.org_alias)
         if not ok:
             return self._block(st, "Repo source did not deploy cleanly to the org (base branch broken or "
@@ -265,14 +263,13 @@ class Orchestrator:
         self.jira.transition_to(key, self.S["pr_raised"])
         st.stage = "DONE"
         self.store.save(st)
-        if self.s.delete_scratch_on_done and st.org_strategy == "scratch":
-            await asyncio.to_thread(sf_cli.delete_scratch, st.org_alias)
 
     # ------------------------------------------------------------------ helpers
     def _mcp(self, st: RunState) -> StdioServerParameters:
-        # One DX MCP server per run, allowed to touch exactly ONE org
+        # One DX MCP server per run, allowed to touch exactly ONE org.
+        # Resolved path: on Windows npx is a .cmd shim that subprocess won't find by bare name.
         return StdioServerParameters(
-            command="npx",
+            command=shutil.which("npx") or "npx",
             args=["-y", "@salesforce/mcp@latest", "--orgs", st.org_alias,
                   "--toolsets", self.s.mcp_toolsets, *self.s.mcp_extra_args],
             env=dict(os.environ), cwd=st.workspace)

@@ -44,12 +44,8 @@ def _env_list(name: str, default: str = "") -> list[str]:
 class ProjectConfig:
     key: str
     repo: str                                   # "owner/name"
+    org_alias: str                              # existing, already-authorized `sf` org alias
     base_branch: str = "main"
-    org_strategy: str = "scratch"               # "scratch" | "sandbox"
-    dev_hub_alias: str = "devhub"
-    scratch_def: str = "config/project-scratch-def.json"
-    scratch_duration_days: int = 1
-    org_alias: str = ""                         # required for sandbox strategy
 
 
 @dataclass
@@ -74,7 +70,6 @@ class Settings:
     max_design_revisions: int
     max_heal_attempts: int
     required_ticket_sections: list[str]
-    delete_scratch_on_done: bool
     sf_devhub_alias: str
     sf_jwt_client_id: str
     sf_jwt_key_file: str
@@ -115,7 +110,6 @@ def load_settings() -> Settings:
         max_design_revisions=int(_env("MAX_DESIGN_REVISIONS", "3")),
         max_heal_attempts=int(_env("MAX_HEAL_ATTEMPTS", "5")),
         required_ticket_sections=_env_list("REQUIRED_TICKET_SECTIONS", "Business Goal,Acceptance Criteria"),
-        delete_scratch_on_done=_env("DELETE_SCRATCH_ON_DONE", "false").lower() == "true",
         sf_devhub_alias=_env("SF_DEVHUB_ALIAS", "devhub"),
         sf_jwt_client_id=_env("SF_JWT_CLIENT_ID"),
         sf_jwt_key_file=_env("SF_JWT_KEY_FILE"),

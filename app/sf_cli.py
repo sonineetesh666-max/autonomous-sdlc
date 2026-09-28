@@ -1,19 +1,25 @@
 """Deterministic Salesforce operations done by the ORCHESTRATOR (not by Claude):
-org auth, scratch org lifecycle, pushing repo source, and independent verification.
+org auth, checking the target org is reachable, deploying repo source, and independent
+verification. No scratch orgs: every project targets one existing, already-authorized org
+(config/registry.yaml org_alias) and the repo is synced to it before each run.
 Claude uses the Salesforce DX MCP server; this module is the pipeline's own check."""
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 _ENV = {**os.environ, "SF_AUTOUPDATE_DISABLE": "true", "SF_DISABLE_TELEMETRY": "true", "FORCE_COLOR": "0"}
+# On Windows `sf` is a .cmd shim; subprocess needs the resolved path (with extension) to run it
+# directly, since unlike an interactive shell it won't search PATHEXT for a bare "sf".
+_SF = shutil.which("sf") or "sf"
 
 
 def sf(args: list[str], cwd: Path | str | None = None, timeout: int = 1800) -> dict:
-    p = subprocess.run(["sf", *args, "--json"], cwd=cwd, capture_output=True, text=True,
+    p = subprocess.run([_SF, *args, "--json"], cwd=cwd, capture_output=True, text=True,
                        timeout=timeout, env=_ENV)
     try:
         data = json.loads(p.stdout)
@@ -48,14 +54,15 @@ def login_devhub_jwt(client_id: str, key_file: str, username: str, instance_url:
                "--set-default-dev-hub"])
 
 
-def create_scratch(workspace: Path, alias: str, dev_hub: str, def_file: str, days: int) -> tuple[bool, str]:
-    data = sf(["org", "create", "scratch", "--definition-file", def_file, "--alias", alias,
-               "--target-dev-hub", dev_hub, "--duration-days", str(days), "--wait", "20"], cwd=workspace)
-    return data.get("status") == 0, data.get("message", "")
-
-
-def delete_scratch(alias: str) -> None:
-    sf(["org", "delete", "scratch", "--target-org", alias, "--no-prompt"])
+def check_org(alias: str) -> tuple[bool, str]:
+    """Confirms the target org is authorized and reachable before we deploy anything to it."""
+    data = sf(["org", "display", "--target-org", alias])
+    if data.get("status") != 0:
+        return False, data.get("message", f"Org '{alias}' is not authorized (run `sf org login web --alias {alias}`).")
+    result = data.get("result") or {}
+    if result.get("connectedStatus") not in ("Connected", None):
+        return False, f"Org '{alias}' is not connected (status: {result.get('connectedStatus')})."
+    return True, result.get("username", "")
 
 
 def deploy_project(workspace: Path, alias: str) -> tuple[bool, list[str]]:

@@ -20,7 +20,6 @@ class RunState:
     repo: str = ""
     base_branch: str = "main"
     branch: str = ""
-    org_strategy: str = "scratch"
     org_alias: str = ""
     workspace: str = ""
     # paused agent conversation (only while AWAITING_INPUT)

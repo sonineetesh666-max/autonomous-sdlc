@@ -1,19 +1,17 @@
 # Jira project key -> repo + org. Routing is configuration, never AI guesswork.
+# No scratch orgs: each project targets one existing, already-authorized `sf` org alias.
+# The repo is the source of truth and is deployed to that org before every run.
 projects:
-  SFDEV:
-    repo: your-github-org/your-salesforce-repo
+  SCRUM:
+    repo: sonineetesh666-max/sfdev-ai-sandbox
     base_branch: main
-    org_strategy: scratch            # fresh scratch org per ticket (recommended)
-    dev_hub_alias: devhub
-    scratch_def: config/project-scratch-def.json
-    scratch_duration_days: 1
+    org_alias: devhub            # `sf org list` alias for the Client PSA dev org
 
-  # Example of a second client project using a sandbox (org must already be authorised in sf CLI)
+  # Example of a second client project against a different already-authorized org
   # CLIENTB:
   #   repo: your-github-org/clientb-service-cloud
   #   base_branch: develop
-  #   org_strategy: sandbox
-  #   org_alias: clientb-dev-sbx
+  #   org_alias: clientb-dev
 
 # Optional: rename Jira statuses to match your workflow
 # jira_statuses:
